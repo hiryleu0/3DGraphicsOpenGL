@@ -45,11 +45,47 @@ void display()
 	glLoadIdentity();
 
 	glTranslatef(0.0, 0.0, -8.0);
-	glRotatef(y, 0.0, 0.0, 1.0);
-	glRotatef(y, 0.0, 1.0, 0.0);
-	glRotatef(y, 1.0, 0.0, 0.0);
+	glRotatef(y, 0.0, 1.0, 1.0);
 
-	glBegin(GL_POLYGON);
+	glBegin(GL_LINES);
+	glColor3f(0.0, 0.0, 0.0);
+
+	glVertex3f(-1.0, 1.0, 1.0);
+	glVertex3f(-1.0, -1.0, 1.0);
+
+	glVertex3f(-1.0, -1.0, 1.0);
+	glVertex3f(1.0, -1.0, 1.0);
+
+	glVertex3f(1.0, -1.0, 1.0);
+	glVertex3f(1.0, 1.0, 1.0);
+
+	glVertex3f(1.0, 1.0, 1.0);
+	glVertex3f(-1.0, 1.0, 1.0);
+
+	glVertex3f(-1.0, 1.0, -1.0);
+	glVertex3f(-1.0, -1.0, -1.0);
+
+	glVertex3f(-1.0, -1.0, -1.0);
+	glVertex3f(1.0, -1.0, -1.0);
+
+	glVertex3f(1.0, -1.0, -1.0);
+	glVertex3f(1.0, 1.0, -1.0);
+
+	glVertex3f(1.0, 1.0, -1.0);
+	glVertex3f(-1.0, 1.0, -1.0);
+
+	glVertex3f(-1.0, 1.0, -1.0);
+	glVertex3f(-1.0, 1.0, 1.0);
+	glVertex3f(-1.0, -1.0, -1.0);
+	glVertex3f(-1.0, -1.0, 1.0);
+	glVertex3f(1.0, 1.0, -1.0);
+	glVertex3f(1.0, 1.0, 1.0);
+	glVertex3f(1.0, -1.0, -1.0);
+	glVertex3f(1.0, -1.0, 1.0);
+
+	glEnd();
+
+	glBegin(GL_QUADS);
 	{
 		//front
 		glColor3f(1.0, 0.0, 0.0);
@@ -57,52 +93,27 @@ void display()
 		glVertex3f(-1.0, -1.0, 1.0);
 		glVertex3f(1.0, -1.0, 1.0);
 		glVertex3f(1.0, 1.0, 1.0);
-	}
-	glEnd();
-	glBegin(GL_POLYGON);
-	{
 		//back
-		glColor3f(0.0, 1.0, 0.0);
 		glVertex3f(1.0, 1.0, -1.0);
 		glVertex3f(1.0, -1.0, -1.0);
 		glVertex3f(-1.0, -1.0, -1.0);
 		glVertex3f(-1.0, 1.0, -1.0);
-	}
-	glEnd();
-	glBegin(GL_POLYGON);
-	{
 		//right
-		glColor3f(0.0, 0.0, 1.0);
 		glVertex3f(1.0, 1.0, 1.0);
 		glVertex3f(1.0, -1.0, 1.0);
 		glVertex3f(1.0, -1.0, -1.0);
 		glVertex3f(1.0, 1.0, -1.0);
-	}
-	glEnd();
-	glBegin(GL_POLYGON);
-	{
 		//left
-		glColor3f(1.0, 1.0, 0.0);
 		glVertex3f(-1.0, 1.0, -1.0);
 		glVertex3f(-1.0, -1.0, -1.0);
 		glVertex3f(-1.0, -1.0, 1.0);
 		glVertex3f(-1.0, 1.0, 1.0);
-	}
-	glEnd();
-	glBegin(GL_POLYGON);
-	{
 		//top
-		glColor3f(0.0, 1.0, 1.0);
 		glVertex3f(-1.0, 1.0, -1.0);
 		glVertex3f(-1.0, 1.0, 1.0);
 		glVertex3f(1.0, 1.0, 1.0);
 		glVertex3f(1.0, 1.0, -1.0);
-	}
-	glEnd();
-	glBegin(GL_POLYGON);
-	{
 		//bottom
-		glColor3f(1.0, 0.0, 1.0);
 		glVertex3f(-1.0, -1.0, -1.0);
 		glVertex3f(-1.0, -1.0, 1.0);
 		glVertex3f(1.0, -1.0, 1.0);
@@ -132,7 +143,7 @@ void reshape(int w, int h)
 void timer(int)
 {
 	glutPostRedisplay();
-	glutTimerFunc(1, timer, 0);
+	glutTimerFunc(20, timer, 0);
 
 	switch (state)
 	{
@@ -149,5 +160,5 @@ void timer(int)
 			state = 1;
 		break;
 	}
-	y += 0.1;
+	y += 1;
 }
