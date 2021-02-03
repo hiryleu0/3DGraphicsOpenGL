@@ -1,164 +1,71 @@
+#include<iostream>
 
-/* Copyright (c) Mark J. Kilgard, 1994. */
+#include <glad/glad.h>
+#include <glfw3.h>
 
-#include <stdlib.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <GL/glut.h>
-#include <GL/glu.h>
-#include <GL/gl.h>
+using namespace std;
 
-
-void display();
-void reshape(int, int);
-void init();
-void timer(int);
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void process_input(GLFWwindow* window);
 
 int main(int argc, char** argv)
 {
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
+	glfwInit();
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	glutInitWindowPosition(20, 10);
-	glutInitWindowSize(700, 700);
+	GLFWwindow* window = glfwCreateWindow(800, 600, "Project no 4", NULL, NULL);
+	if (window == NULL)
+	{
+		cout << "Failed to create a window" << endl;
+		glfwTerminate();
+		return -1;
+	}
+	glfwMakeContextCurrent(window);
 
-	glutCreateWindow("3D Graphics");
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
+		cout << "Failed to initialize GLAD" << endl;
+		return -1;
+	}
 
-	glutDisplayFunc(display);
-	glutReshapeFunc(reshape);
-	glutTimerFunc(10, timer, 0);
+	glViewport(0, 0, 800, 600);
 
-	init();
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-	glutMainLoop();
+	while (!glfwWindowShouldClose(window))
+	{
+		process_input(window);
 
+		//rendering
+		//------------------------------------------------------------------------
+		glClearColor(1, 1, 1, 1);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		//------------------------------------------------------------------------
+
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
+
+	glfwTerminate();
 	return 0;
 }
 
-float x = -5.0;
-float y = 0.0;
-int state = 1;
-
-void display()
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glLoadIdentity();
+	glViewport(0, 0, width, height);
+}
 
-	glTranslatef(0.0, 0.0, -8.0);
-	glRotatef(y, 0.0, 1.0, 1.0);
-
-	glBegin(GL_LINES);
-	glColor3f(0.0, 0.0, 0.0);
-
-	glVertex3f(-1.0, 1.0, 1.0);
-	glVertex3f(-1.0, -1.0, 1.0);
-
-	glVertex3f(-1.0, -1.0, 1.0);
-	glVertex3f(1.0, -1.0, 1.0);
-
-	glVertex3f(1.0, -1.0, 1.0);
-	glVertex3f(1.0, 1.0, 1.0);
-
-	glVertex3f(1.0, 1.0, 1.0);
-	glVertex3f(-1.0, 1.0, 1.0);
-
-	glVertex3f(-1.0, 1.0, -1.0);
-	glVertex3f(-1.0, -1.0, -1.0);
-
-	glVertex3f(-1.0, -1.0, -1.0);
-	glVertex3f(1.0, -1.0, -1.0);
-
-	glVertex3f(1.0, -1.0, -1.0);
-	glVertex3f(1.0, 1.0, -1.0);
-
-	glVertex3f(1.0, 1.0, -1.0);
-	glVertex3f(-1.0, 1.0, -1.0);
-
-	glVertex3f(-1.0, 1.0, -1.0);
-	glVertex3f(-1.0, 1.0, 1.0);
-	glVertex3f(-1.0, -1.0, -1.0);
-	glVertex3f(-1.0, -1.0, 1.0);
-	glVertex3f(1.0, 1.0, -1.0);
-	glVertex3f(1.0, 1.0, 1.0);
-	glVertex3f(1.0, -1.0, -1.0);
-	glVertex3f(1.0, -1.0, 1.0);
-
-	glEnd();
-
-	glBegin(GL_QUADS);
+void process_input(GLFWwindow* window)
+{
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 	{
-		//front
-		glColor3f(1.0, 0.0, 0.0);
-		glVertex3f(-1.0, 1.0, 1.0);
-		glVertex3f(-1.0, -1.0, 1.0);
-		glVertex3f(1.0, -1.0, 1.0);
-		glVertex3f(1.0, 1.0, 1.0);
-		//back
-		glVertex3f(1.0, 1.0, -1.0);
-		glVertex3f(1.0, -1.0, -1.0);
-		glVertex3f(-1.0, -1.0, -1.0);
-		glVertex3f(-1.0, 1.0, -1.0);
-		//right
-		glVertex3f(1.0, 1.0, 1.0);
-		glVertex3f(1.0, -1.0, 1.0);
-		glVertex3f(1.0, -1.0, -1.0);
-		glVertex3f(1.0, 1.0, -1.0);
-		//left
-		glVertex3f(-1.0, 1.0, -1.0);
-		glVertex3f(-1.0, -1.0, -1.0);
-		glVertex3f(-1.0, -1.0, 1.0);
-		glVertex3f(-1.0, 1.0, 1.0);
-		//top
-		glVertex3f(-1.0, 1.0, -1.0);
-		glVertex3f(-1.0, 1.0, 1.0);
-		glVertex3f(1.0, 1.0, 1.0);
-		glVertex3f(1.0, 1.0, -1.0);
-		//bottom
-		glVertex3f(-1.0, -1.0, -1.0);
-		glVertex3f(-1.0, -1.0, 1.0);
-		glVertex3f(1.0, -1.0, 1.0);
-		glVertex3f(1.0, -1.0, -1.0);
+		glfwSetWindowShouldClose(window, true);
 	}
-	glEnd();
-
-	glutSwapBuffers();
-}
-
-void init()
-{
-	glClearColor(0.0, 0.0, 0.0, 1.0);
-	glColor3f(1.0, 1.0, 1.0);
-	glEnable(GL_DEPTH_TEST);
-}
-
-void reshape(int w, int h)
-{
-	glViewport(0, 0, w, h);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluPerspective(60.0, 1.0, 2.0, 50.0);
-	glMatrixMode(GL_MODELVIEW);
-}
-
-void timer(int)
-{
-	glutPostRedisplay();
-	glutTimerFunc(20, timer, 0);
-
-	switch (state)
+	else if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS)
 	{
-	case 1:
-		if (x < -5)
-			x += 0.15;
-		else
-			state = -1;
-		break;
-	case -1:
-		if (x > -15)
-			x -= 0.15;
-		else
-			state = 1;
-		break;
+		glfwSetWindowSize(window, 10, 10);
 	}
-	y += 1;
 }
