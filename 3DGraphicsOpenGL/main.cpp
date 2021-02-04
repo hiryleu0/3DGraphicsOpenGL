@@ -83,7 +83,14 @@ float h = 0;
 float d = 0.0f;
 float b[] = { 0.0f, 0.1f, 0.2f, 10.0f, 11.0f, 80.0f, 23.23f, -123.0f, 0.0f, -13.0f };
 float db[] = {0.1, 0.001, 0.2, 0.5, 1, 0.004, 0.0, 0.1, -0.3, -0.4};
+
+int camera_mode = 0;
+
 glm::mat4 projection;
+
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 2.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 int main(int argc, char** argv)
 {
@@ -202,15 +209,7 @@ int main(int argc, char** argv)
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::rotate(model, glm::radians(-55.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
-    glm::mat4 view = glm::mat4(1.0f);
-    // note that we're translating the scene in the reverse direction of where we want to move
-    view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-
-
-    projection = glm::perspective(glm::radians(a), 800.0f / 600.0f, 0.1f, 100.0f);
     
-    int modelLoc = glGetUniformLocation(shader.ID, "view");
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(view));
 
     int modelLoc2 = glGetUniformLocation(shader.ID, "model");
     glUniformMatrix4fv(modelLoc2, 1, GL_FALSE, glm::value_ptr(model));
@@ -225,10 +224,31 @@ int main(int argc, char** argv)
         // -----
         process_input(window);
 
+        glm::mat4 view;
+
+        if (camera_mode == 0)
+        {
+            view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        }
+        else if (camera_mode == 1)
+        {
+            view = glm::lookAt(cameraPos + glm::vec3(0,h,0), glm::vec3(0, h, 0) +cameraPos + cameraFront, cameraUp);
+        }
+        else if (camera_mode == 2)
+        {
+            view = glm::lookAt(cameraPos, cubePositions[0] + glm::vec3(0, h, 0), glm::vec3(0, 1, 0));
+        }
         // render
         // ------
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        
+
+        projection = glm::perspective(glm::radians(a), 800.0f / 600.0f, 0.1f, 100.0f);
+
+        int modelLoc = glGetUniformLocation(shader.ID, "view");
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(view));
 
         float r = 5.0;
         projection = glm::perspective(glm::radians(a), 800.0f / 600.0f, 0.1f, 100.0f);
@@ -255,12 +275,12 @@ int main(int argc, char** argv)
         {
             b[i] += db[i]/2;
             glm::mat4 model2;
-            if(i==9)
+            if(i == 0)
                 model2 = glm::rotate(model, glm::radians(b[i]), cubePositions[i]+ glm::vec3(0, h, 0));
             else
                 model2 = glm::rotate(model, glm::radians(b[i]), cubePositions[i]);
             model2 = glm::translate(model2, cubePositions[i]);
-            if (i == 9)
+            if (i == 0)
                 model2 = glm::translate(model2, glm::vec3(0, h, 0));
             modelLoc2 = glGetUniformLocation(shader.ID, "model");
             glUniformMatrix4fv(modelLoc2, 1, GL_FALSE, glm::value_ptr(model2));
@@ -329,5 +349,17 @@ void process_input(GLFWwindow* window)
     else if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
         d += 0.05;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
+    {
+        camera_mode = 1;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
+    {
+        camera_mode = 2;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_0) == GLFW_PRESS)
+    {
+        camera_mode = 0;
     }
 }
