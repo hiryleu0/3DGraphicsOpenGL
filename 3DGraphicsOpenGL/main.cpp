@@ -232,11 +232,11 @@ int main(int argc, char** argv)
         }
         else if (camera_mode == 1)
         {
-            view = glm::lookAt(cameraPos + glm::vec3(0,h,0), glm::vec3(0, h, 0) +cameraPos + cameraFront, cameraUp);
+            view = glm::lookAt(cameraPos + glm::vec3(0,h,0), cubePositions[0] + glm::vec3(0, h, 0), cameraUp);
         }
         else if (camera_mode == 2)
         {
-            view = glm::lookAt(cameraPos, cubePositions[0] + glm::vec3(0, h, 0), glm::vec3(0, 1, 0));
+            view = glm::lookAt(cameraPos, cubePositions[0] + glm::vec3(0, h, 0), cameraUp);
         }
         // render
         // ------
