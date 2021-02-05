@@ -1,6 +1,7 @@
 #pragma once
 
 #include<glad/glad.h>
+#include<glm.hpp>
 #include<fstream>
 #include<sstream>
 #include<iostream>
@@ -98,6 +99,10 @@ public:
     void setFloat(const string& name, float value) const
     {
         glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
+    }
+    void setMat4(const string& name, glm::mat4 value) const
+    {
+        ;
     }
 };
 
