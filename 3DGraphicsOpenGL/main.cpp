@@ -45,6 +45,10 @@ float car_speed = 2.0;
 float car_radius = 8.0;
 float car_angle = 0.0;
 int last_time;
+bool car_moving = true;
+
+glm::vec3 reflector_direction(0.0, 0.0, 0.1);
+
 
 int main()
 {
@@ -74,7 +78,7 @@ int main()
     glfwSetScrollCallback(window, scroll_callback);
 
     // tell GLFW to capture our mouse
-    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -103,6 +107,8 @@ int main()
     Model ball("./Objects/ball/ball.obj");
     Model tower("./Objects/tower/tower.obj");
 
+
+
     // draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -118,7 +124,8 @@ int main()
 
         // input
         // -----
-        car_angle += car_speed * deltaTime;
+        if(car_moving)
+            car_angle += car_speed * deltaTime;
         processInput(window);
 
         // render
@@ -129,8 +136,14 @@ int main()
         // don't forget to enable shader before setting uniforms
         ourShader->use();
 
+        //set light
+        // -----------
+        int modelLoc5 = glGetUniformLocation(ourShader->ID, "light_pos1");
+        glUniform3f(modelLoc5, 0.0, 10.0, 50.0);
+
+
         // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(camera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 80.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(camera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
         glm::mat4 view;
         glm::vec3 car_translation = car_radius * glm::vec3(-sin(car_angle), 0, -cos(car_angle) + 1);
         int modelLoc4 = glGetUniformLocation(ourShader->ID, "camCoords");
@@ -174,7 +187,6 @@ int main()
         model = glm::rotate(model, car_angle, glm::vec3(0, 1, 0));
         glUniformMatrix4fv(modelLoc3, 1, GL_FALSE, glm::value_ptr(model));
         car.Draw(*ourShader);
-
 
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
