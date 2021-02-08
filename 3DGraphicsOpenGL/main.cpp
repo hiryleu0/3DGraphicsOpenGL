@@ -36,6 +36,7 @@ bool firstMouse = true;
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+float part_of_day = 0.5;
 
 //shaders
 Shader* ourShader;
@@ -46,8 +47,7 @@ float car_radius = 8.0;
 float car_angle = 0.0;
 int last_time;
 bool car_moving = true;
-
-glm::vec3 reflector_direction(0.0, 0.0, 0.1);
+float lights_moved = 0.0;
 
 
 int main()
@@ -112,6 +112,9 @@ int main()
     // draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
+    glm::mat4 projection = glm::perspective(glm::radians(camera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+    glm::mat4 view;
+
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -121,6 +124,8 @@ int main()
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
+        part_of_day = (cos(currentFrame/2) + 1) / 2;
+
 
         // input
         // -----
@@ -130,21 +135,16 @@ int main()
 
         // render
         // ------
-        glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+        glClearColor(part_of_day, part_of_day, part_of_day, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // don't forget to enable shader before setting uniforms
         ourShader->use();
-
-        //set light
-        // -----------
-        int modelLoc5 = glGetUniformLocation(ourShader->ID, "light_pos1");
-        glUniform3f(modelLoc5, 0.0, 10.0, 50.0);
-
+        
+        ourShader->setFloat("part_of_day", part_of_day);
 
         // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(camera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        glm::mat4 view;
+
         glm::vec3 car_translation = car_radius * glm::vec3(-sin(car_angle), 0, -cos(car_angle) + 1);
         int modelLoc4 = glGetUniformLocation(ourShader->ID, "camCoords");
         if (camera_mode == 1)
@@ -161,7 +161,9 @@ int main()
             view = camera3.GetViewMatrix(car_translation);
         }
         glUniform3f(modelLoc4, camera->Position.x, camera->Position.y, camera->Position.z);
-
+        
+        int modelLoc8 = glGetUniformLocation(ourShader->ID, "s");
+        glUniform3f(modelLoc8, part_of_day, part_of_day, part_of_day);
 
         int modelLoc = glGetUniformLocation(ourShader->ID, "projection");
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(projection));
@@ -171,21 +173,28 @@ int main()
 
         // render the loaded model
         glm::mat4 model = glm::mat4(1.0f);
+
         model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
         model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
-        ourShader->setMat4("model", model);
+        glm::mat4 modelT = glm::translate(model, car_translation);
+        modelT = glm::rotate(modelT, car_angle, glm::vec3(0, 1, 0));
+        glm::mat4 modelTT = glm::rotate(modelT, lights_moved, glm::vec3(0, 1, 0));
+
+        int modelLoc7 = glGetUniformLocation(ourShader->ID, "modelTT");
+        glUniformMatrix4fv(modelLoc7, 1, GL_FALSE, glm::value_ptr(modelTT));
+
         int modelLoc3 = glGetUniformLocation(ourShader->ID, "model");
         glUniformMatrix4fv(modelLoc3, 1, GL_FALSE, glm::value_ptr(model));
+        int modelLoc6 = glGetUniformLocation(ourShader->ID, "modelT");
+        glUniformMatrix4fv(modelLoc6, 1, GL_FALSE, glm::value_ptr(modelT));
+
         ball.Draw(*ourShader);
         houses.Draw(*ourShader);
         board.Draw(*ourShader);
         tower.Draw(*ourShader);
 
-        
-        last_time = glfwGetTime();
-        model = glm::translate(model, car_translation);
-        model = glm::rotate(model, car_angle, glm::vec3(0, 1, 0));
-        glUniformMatrix4fv(modelLoc3, 1, GL_FALSE, glm::value_ptr(model));
+        last_time = glfwGetTime(); 
+        glUniformMatrix4fv(modelLoc3, 1, GL_FALSE, glm::value_ptr(modelT));
         car.Draw(*ourShader);
 
 
@@ -241,6 +250,10 @@ void processInput(GLFWwindow* window)
         car_speed += 0.001;
     if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
         car_speed -= 0.001;
+    if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
+        lights_moved += 0.002;
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
+        lights_moved -= 0.002;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
