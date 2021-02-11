@@ -50,7 +50,7 @@ Shader* shader2;
 bool deferred = false;
 
 //movement settings
-float car_speed = 2.0;
+float car_speed = 1.3;
 float old_car_speed = 0.0;
 float car_radius = 8.0;
 float car_angle = 0.0;
