@@ -44,8 +44,8 @@ Shader* gouradShader;
 Shader* phongShader;
 Shader* shaderGeometryPass;
 Shader* shaderLightingPass;
-Shader* ourShader;
-Shader* ourShader2;
+Shader* shader1;
+Shader* shader2;
 
 bool deferred = false;
 
@@ -105,7 +105,7 @@ int main()
     phongShader = new Shader("./Shaders/PhongShader/shader.vs", "./Shaders/PhongShader/shader.fs");
     shaderGeometryPass = new Shader("./Shaders/DeferredShaders/GeometryPassShader/shader.vs", "./Shaders/DeferredShaders/GeometryPassShader/shader.fs");
     shaderLightingPass = new Shader("./Shaders/DeferredShaders/LightingPassShader/shader.vs", "./Shaders/DeferredShaders/LightingPassShader/shader.fs");
-    ourShader = ourShader2 = flatShader;
+    shader1 = shader2 = flatShader;
 
     // ------------------------------
     unsigned int gBuffer;
@@ -208,16 +208,16 @@ int main()
         modelT = glm::rotate(modelT, car_angle, glm::vec3(0, 1, 0));
         modelTT = glm::rotate(modelT, lights_moved, glm::vec3(0, 1, 0));
 
-        ourShader->use();
-        ourShader->setMat4("projection", projection);
-        ourShader->setMat4("view", view);
-        ourShader->setMat4("model", model);
-        ourShader2->use();
-        ourShader2->setMat4("modelT", modelT);
-        ourShader2->setMat4("modelTT", modelTT);
-        ourShader2->setVec3("camCoords", camera->Position);
-        ourShader2->setVec3("s", glm::vec3(0));
-        ourShader2->setFloat("part_of_day", part_of_day);
+        shader1->use();
+        shader1->setMat4("projection", projection);
+        shader1->setMat4("view", view);
+        shader1->setMat4("model", model);
+        shader2->use();
+        shader2->setMat4("modelT", modelT);
+        shader2->setMat4("modelTT", modelTT);
+        shader2->setVec3("camCoords", camera->Position);
+        shader2->setVec3("s", glm::vec3(0));
+        shader2->setFloat("part_of_day", part_of_day);
 
         if (deferred)
         {
@@ -225,13 +225,13 @@ int main()
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         }
 
-        ourShader->use();
-        board.Draw(*ourShader);
-        houses.Draw(*ourShader);
-        ball.Draw(*ourShader);
-        tower.Draw(*ourShader);
-        ourShader->setMat4("model", modelT);
-        car.Draw(*ourShader);
+        shader1->use();
+        board.Draw(*shader1);
+        houses.Draw(*shader1);
+        ball.Draw(*shader1);
+        tower.Draw(*shader1);
+        shader1->setMat4("model", modelT);
+        car.Draw(*shader1);
 
         if (deferred)
         {
@@ -259,7 +259,6 @@ int main()
     return 0;
 }
 
-
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow* window)
 {
@@ -276,7 +275,7 @@ void processInput(GLFWwindow* window)
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
             camera1.ProcessKeyboard(RIGHT, deltaTime);
 
-        ourShader2->setVec3("camCoords", camera->Position);
+        shader2->setVec3("camCoords", camera->Position);
     }
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
     {
@@ -296,26 +295,26 @@ void processInput(GLFWwindow* window)
     if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
     {
         deferred = false;
-        ourShader = flatShader;
-        ourShader2 = flatShader;
+        shader1 = flatShader;
+        shader2 = flatShader;
     }
     if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS)
     {
         deferred = false;
-        ourShader = gouradShader;
-        ourShader2 = gouradShader;
+        shader1 = gouradShader;
+        shader2 = gouradShader;
     }
     if (glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS)
     {
         deferred = false;
-        ourShader = phongShader;
-        ourShader2 = phongShader;
+        shader1 = phongShader;
+        shader2 = phongShader;
     }
     if (glfwGetKey(window, GLFW_KEY_7) == GLFW_PRESS)
     {
         deferred = true;
-        ourShader = shaderGeometryPass;
-        ourShader2 = shaderLightingPass;
+        shader1 = shaderGeometryPass;
+        shader2 = shaderLightingPass;
     }
     if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS && car_moving)
         car_speed += 0.001;
