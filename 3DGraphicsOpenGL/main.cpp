@@ -3,7 +3,6 @@
 
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
-#include <gtc/type_ptr.hpp>
 
 #include "Shader.h"
 #include "Model.h"
@@ -15,10 +14,11 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
+void renderQuad();
 
 // settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 1000;
+const unsigned int SCR_HEIGHT = 800;
 
 // camera
 int camera_mode = 1;
@@ -39,16 +39,23 @@ float lastFrame = 0.0f;
 float part_of_day = 0.5;
 
 //shaders
+Shader* flatShader;
+Shader* gouradShader;
+Shader* phongShader;
+Shader* shaderGeometryPass;
+Shader* shaderLightingPass;
 Shader* ourShader;
+Shader* ourShader2;
+
+bool deferred = false;
 
 //movement settings
 float car_speed = 2.0;
+float old_car_speed = 0.0;
 float car_radius = 8.0;
 float car_angle = 0.0;
-int last_time;
 bool car_moving = true;
-float lights_moved = 0.0;
-
+float lights_moved = 0.0; 
 
 int main()
 {
@@ -88,16 +95,63 @@ int main()
         return -1;
     }
 
-    // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
-    //stbi_set_flip_vertically_on_load(true);
-
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+    
+    // shaders
+    flatShader = new Shader("./Shaders/FlatShader/shader.vs", "./Shaders/FlatShader/shader.fs");
+    gouradShader = new Shader("./Shaders/GouradShader/shader.vs", "./Shaders/GouradShader/shader.fs");
+    phongShader = new Shader("./Shaders/PhongShader/shader.vs", "./Shaders/PhongShader/shader.fs");
+    shaderGeometryPass = new Shader("./Shaders/DeferredShaders/GeometryPassShader/shader.vs", "./Shaders/DeferredShaders/GeometryPassShader/shader.fs");
+    shaderLightingPass = new Shader("./Shaders/DeferredShaders/LightingPassShader/shader.vs", "./Shaders/DeferredShaders/LightingPassShader/shader.fs");
+    ourShader = ourShader2 = flatShader;
 
-    // build and compile shaders
-    // -------------------------
-    ourShader = new Shader("./Shaders/shader1/shader.vs", "./Shaders/shader1/shader.fs");
+    // ------------------------------
+    unsigned int gBuffer;
+    glGenFramebuffers(1, &gBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+    unsigned int gPosition, gNormal, gAlbedoSpec;
+    // position color buffer
+    glGenTextures(1, &gPosition);
+    glBindTexture(GL_TEXTURE_2D, gPosition);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
+    // normal color buffer
+    glGenTextures(1, &gNormal);
+    glBindTexture(GL_TEXTURE_2D, gNormal);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
+    // color + specular color buffer
+    glGenTextures(1, &gAlbedoSpec);
+    glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedoSpec, 0);
+    // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering 
+    unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+    glDrawBuffers(3, attachments);
+    // create and attach depth buffer (renderbuffer)
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    // finally check if framebuffer is complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+    shaderLightingPass->use();
+    shaderLightingPass->setInt("gPosition", 0);
+    shaderLightingPass->setInt("gNormal", 1);
+    shaderLightingPass->setInt("gAlbedoSpec", 2);
 
     // load models
     // -----------
@@ -108,12 +162,12 @@ int main()
     Model tower("./Objects/tower/tower.obj");
 
 
-
     // draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     glm::mat4 projection = glm::perspective(glm::radians(camera->Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
     glm::mat4 view;
+
 
     // render loop
     // -----------
@@ -124,93 +178,88 @@ int main()
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
-        part_of_day = (cos(currentFrame/2) + 1) / 2;
-
+        part_of_day = min((cos(currentFrame/3)+1), 1.0f);
+        if (car_moving) car_angle += car_speed * deltaTime;
+        glm::vec3 car_translation = car_radius * glm::vec3(-sin(car_angle), 0, -cos(car_angle) + 1);
 
         // input
         // -----
-        if(car_moving)
-            car_angle += car_speed * deltaTime;
         processInput(window);
 
         // render
         // ------
-        glClearColor(part_of_day, part_of_day, part_of_day, 1.0f);
+        glClearColor(0, 0, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // don't forget to enable shader before setting uniforms
-        ourShader->use();
-        
-        ourShader->setFloat("part_of_day", part_of_day);
-
-        // view/projection transformations
-
-        glm::vec3 car_translation = car_radius * glm::vec3(-sin(car_angle), 0, -cos(car_angle) + 1);
-        int modelLoc4 = glGetUniformLocation(ourShader->ID, "camCoords");
-        if (camera_mode == 1)
-        {
-            view = camera1.GetViewMatrix();             
-        }
-        else if (camera_mode == 2)
-        {
-            view = camera2.GetViewMatrix(car_translation);
-        }
+        if (camera_mode == 1) view = camera1.GetViewMatrix();             
+        else if (camera_mode == 2) view = camera2.GetViewMatrix(car_translation);
         else
         {
             camera3.Position = car_translation + cam3_pos0;
             view = camera3.GetViewMatrix(car_translation);
         }
-        glUniform3f(modelLoc4, camera->Position.x, camera->Position.y, camera->Position.z);
         
-        int modelLoc8 = glGetUniformLocation(ourShader->ID, "s");
-        glUniform3f(modelLoc8, part_of_day, part_of_day, part_of_day);
-
-        int modelLoc = glGetUniformLocation(ourShader->ID, "projection");
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-        int modelLoc2 = glGetUniformLocation(ourShader->ID, "view");
-        glUniformMatrix4fv(modelLoc2, 1, GL_FALSE, glm::value_ptr(view));
-
-        // render the loaded model
         glm::mat4 model = glm::mat4(1.0f);
-
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
-        glm::mat4 modelT = glm::translate(model, car_translation);
+        glm::mat4 modelT;
+        glm::mat4 modelTT;
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+        modelT = glm::translate(model, car_translation);
         modelT = glm::rotate(modelT, car_angle, glm::vec3(0, 1, 0));
-        glm::mat4 modelTT = glm::rotate(modelT, lights_moved, glm::vec3(0, 1, 0));
+        modelTT = glm::rotate(modelT, lights_moved, glm::vec3(0, 1, 0));
 
-        int modelLoc7 = glGetUniformLocation(ourShader->ID, "modelTT");
-        glUniformMatrix4fv(modelLoc7, 1, GL_FALSE, glm::value_ptr(modelTT));
+        ourShader->use();
+        ourShader->setMat4("projection", projection);
+        ourShader->setMat4("view", view);
+        ourShader->setMat4("model", model);
+        ourShader2->use();
+        ourShader2->setMat4("modelT", modelT);
+        ourShader2->setMat4("modelTT", modelTT);
+        ourShader2->setVec3("camCoords", camera->Position);
+        ourShader2->setVec3("s", glm::vec3(0));
+        ourShader2->setFloat("part_of_day", part_of_day);
 
-        int modelLoc3 = glGetUniformLocation(ourShader->ID, "model");
-        glUniformMatrix4fv(modelLoc3, 1, GL_FALSE, glm::value_ptr(model));
-        int modelLoc6 = glGetUniformLocation(ourShader->ID, "modelT");
-        glUniformMatrix4fv(modelLoc6, 1, GL_FALSE, glm::value_ptr(modelT));
+        if (deferred)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        }
 
-        ball.Draw(*ourShader);
-        houses.Draw(*ourShader);
+        ourShader->use();
         board.Draw(*ourShader);
+        houses.Draw(*ourShader);
+        ball.Draw(*ourShader);
         tower.Draw(*ourShader);
-
-        last_time = glfwGetTime(); 
-        glUniformMatrix4fv(modelLoc3, 1, GL_FALSE, glm::value_ptr(modelT));
+        ourShader->setMat4("model", modelT);
         car.Draw(*ourShader);
 
+        if (deferred)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            shaderLightingPass->use();
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gPosition);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, gNormal);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
+            renderQuad();
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+            glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
 
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    // glfw: terminate, clearing all previously allocated GLFW resources.
-    // ------------------------------------------------------------------
     glfwTerminate();
     return 0;
 }
 
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow* window)
 {
@@ -227,9 +276,7 @@ void processInput(GLFWwindow* window)
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
             camera1.ProcessKeyboard(RIGHT, deltaTime);
 
-        int modelLoc4 = glGetUniformLocation(ourShader->ID, "camCoords");
-        glUniform3f(modelLoc4, camera->Position.x, camera->Position.y, camera->Position.z);
-
+        ourShader2->setVec3("camCoords", camera->Position);
     }
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
     {
@@ -246,26 +293,50 @@ void processInput(GLFWwindow* window)
         camera_mode = 3;
         camera = &camera3;
     }
-    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
+    {
+        deferred = false;
+        ourShader = flatShader;
+        ourShader2 = flatShader;
+    }
+    if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS)
+    {
+        deferred = false;
+        ourShader = gouradShader;
+        ourShader2 = gouradShader;
+    }
+    if (glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS)
+    {
+        deferred = false;
+        ourShader = phongShader;
+        ourShader2 = phongShader;
+    }
+    if (glfwGetKey(window, GLFW_KEY_7) == GLFW_PRESS)
+    {
+        deferred = true;
+        ourShader = shaderGeometryPass;
+        ourShader2 = shaderLightingPass;
+    }
+    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS && car_moving)
         car_speed += 0.001;
-    if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS && car_moving)
         car_speed -= 0.001;
     if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
-        lights_moved += 0.002;
+        lights_moved += 0.005;
     if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
-        lights_moved -= 0.002;
+        lights_moved -= 0.005;
+    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
+        car_moving = false;
+    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+        car_moving = true;    
 }
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-    // make sure the viewport matches the new window dimensions; note that width and 
-    // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
 }
 
-// glfw: whenever the mouse moves, this callback is called
 // -------------------------------------------------------
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
@@ -286,9 +357,39 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
     camera1.ProcessMouseMovement(xoffset, yoffset);
 }
 
-// glfw: whenever the mouse scroll wheel scrolls, this callback is called
 // ----------------------------------------------------------------------
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera->ProcessMouseScroll(yoffset);
+}
+
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+
+float quadVertices[] = {
+    // positions        // texture Coords
+    -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+    -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+     1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+     1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+};
+
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        // setup plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
 }
